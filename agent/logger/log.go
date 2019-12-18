@@ -14,11 +14,15 @@
 package logger
 
 import (
+	"fmt"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
-	log "github.com/cihub/seelog"
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -37,38 +41,34 @@ var logger OldLogger
 // Initialize this logger once
 var once sync.Once
 
-func init() {
-	once.Do(initLogger)
-}
-
-func initLogger() {
-	levels = map[string]string{
-		"debug": "debug",
-		"info":  "info",
-		"warn":  "warn",
-		"error": "error",
-		"crit":  "critical",
-		"none":  "off",
+func logfmtFormatter(params string) seelog.FormatterFunc {
+	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
+		cc, ok := context.CustomContext().(map[string]string)
+		var customContext string
+		if ok && len(cc) > 0 {
+			var sortedContext []string
+			for k, v := range cc {
+				sortedContext = append(sortedContext, k+"="+v)
+			}
+			sort.Strings(sortedContext)
+			customContext = " " + strings.Join(sortedContext, " ")
+		}
+		return fmt.Sprintf(`level=%s time=%s msg=%q module=%s%s
+`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, context.FileName(), customContext)
 	}
-
-	level = DEFAULT_LOGLEVEL
-
-	logger = &Shim{}
-
-	envLevel := os.Getenv(LOGLEVEL_ENV_VAR)
-
-	logfile = os.Getenv(LOGFILE_ENV_VAR)
-	SetLevel(envLevel)
-	registerPlatformLogger()
-	reloadConfig()
 }
 
-func reloadConfig() {
-	logger, err := log.LoggerFromConfigAsString(loggerConfig())
-	if err == nil {
-		log.ReplaceLogger(logger)
-	} else {
-		log.Error(err)
+func jsonFormatter(params string) seelog.FormatterFunc {
+	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
+		cc, ok := context.CustomContext().(map[string]string)
+		var customContext string
+		if ok && len(cc) > 0 {
+			for k, v := range cc {
+				customContext += fmt.Sprintf(", %q: %q", k, v)
+			}
+		}
+		return fmt.Sprintf(`{"level": %q, "time": %q, "msg": %q, "module": %q%s}
+`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, context.FileName(), customContext)
 	}
 }
 
@@ -77,10 +77,10 @@ func SetLevel(logLevel string) {
 	parsedLevel, ok := levels[strings.ToLower(logLevel)]
 
 	if ok {
-		levelLock.Lock()
-		defer levelLock.Unlock()
-		level = parsedLevel
-		reloadConfig()
+		Config.lock.Lock()
+		defer Config.lock.Unlock()
+		Config.level = parsedLevel
+		reloadMainConfig()
 	}
 }
 
@@ -92,9 +92,66 @@ func GetLevel() string {
 	return level
 }
 
-// ForModule returns an OldLogger instance.  OldLogger is deprecated and kept
-// for compatibility reasons.  Prefer using Seelog directly.
-func ForModule(module string) OldLogger {
-	once.Do(initLogger)
-	return logger.New("module", module)
+func InitLogger() seelog.LoggerInterface {
+	logger, err := seelog.LoggerFromConfigAsString(seelogConfig())
+	if err != nil {
+		seelog.Errorf("Error creating seelog logger: %s", err)
+		return seelog.Default
+	}
+	return logger
+}
+
+func reloadMainConfig() {
+	logger, err := seelog.LoggerFromConfigAsString(seelogConfig())
+	if err == nil {
+		seelog.ReplaceLogger(logger)
+	} else {
+		seelog.Error(err)
+	}
+}
+
+func init() {
+	Config = &logConfig{
+		logfile:       os.Getenv(LOGFILE_ENV_VAR),
+		level:         DEFAULT_LOGLEVEL,
+		RolloverType:  DEFAULT_ROLLOVER_TYPE,
+		outputFormat:  DEFAULT_OUTPUT_FORMAT,
+		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
+		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+	}
+
+	if level := os.Getenv(LOGLEVEL_ENV_VAR); level != "" {
+		SetLevel(level)
+	}
+	if RolloverType := os.Getenv(LOG_ROLLOVER_TYPE_ENV_VAR); RolloverType != "" {
+		Config.RolloverType = RolloverType
+	}
+	if outputFormat := os.Getenv(LOG_OUTPUT_FORMAT_ENV_VAR); outputFormat != "" {
+		Config.outputFormat = outputFormat
+	}
+	if MaxRollCount := os.Getenv(LOG_MAX_ROLL_COUNT_ENV_VAR); MaxRollCount != "" {
+		i, err := strconv.Atoi(MaxRollCount)
+		if err == nil {
+			Config.MaxRollCount = i
+		} else {
+			seelog.Error("Invalid value for "+LOG_MAX_ROLL_COUNT_ENV_VAR, err)
+		}
+	}
+	if MaxFileSizeMB := os.Getenv(LOG_MAX_FILE_SIZE_ENV_VAR); MaxFileSizeMB != "" {
+		f, err := strconv.ParseFloat(MaxFileSizeMB, 64)
+		if err == nil {
+			Config.MaxFileSizeMB = f
+		} else {
+			seelog.Error("Invalid value for "+LOG_MAX_FILE_SIZE_ENV_VAR, err)
+		}
+	}
+
+	if err := seelog.RegisterCustomFormatter("EcsAgentLogfmt", logfmtFormatter); err != nil {
+		seelog.Error(err)
+	}
+	if err := seelog.RegisterCustomFormatter("EcsAgentJson", jsonFormatter); err != nil {
+		seelog.Error(err)
+	}
+	registerPlatformLogger()
+	seelog.ReplaceLogger(InitLogger())
 }

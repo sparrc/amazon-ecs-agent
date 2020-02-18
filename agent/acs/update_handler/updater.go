@@ -115,7 +115,8 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 			return
 		}
 
-		seelog.Debug("Staging update", "update", req)
+		seelog.Infof("Staging an agent update from file %s", *req.UpdateInfo.Location)
+		seelog.Debug("Received Update Request: ", req)
 
 		if u.stage != updateNone {
 			if u.updateID != "" && u.updateID == *req.UpdateInfo.Signature {
@@ -183,6 +184,7 @@ func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 	if err != nil {
 		return err
 	}
+	seelog.Infof("Update agent tarball written to %s", outFilePath)
 	defer func() {
 		outFile.Close()
 		if err != nil {

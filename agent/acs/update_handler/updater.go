@@ -15,6 +15,7 @@ package updater
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -82,6 +83,17 @@ func AddAgentUpdateHandlers(cs wsclient.ClientServer, cfg *config.Config, saver 
 	}
 	cs.AddRequestHandler(singleUpdater.stageUpdateHandler())
 	cs.AddRequestHandler(singleUpdater.performUpdateHandler(saver, taskEngine))
+	go func() {
+		time.Sleep(5 * time.Second)
+		req := &ecsacs.StageUpdateMessage{}
+		jsonreq := ``
+		err := json.Unmarshal([]byte(jsonreq), req)
+		if err != nil {
+			seelog.Errorf("ERROR IN FAKE UPDATE CODE: %s", err)
+			return
+		}
+		singleUpdater.stageUpdateHandler()(req)
+	}()
 }
 
 func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
@@ -116,7 +128,7 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 		}
 
 		seelog.Infof("Staging an agent update from file %s", *req.UpdateInfo.Location)
-		seelog.Debug("Received Update Request: ", req)
+		seelog.Infof("TODO DEBUG Received Update Request: ", req)
 
 		if u.stage != updateNone {
 			if u.updateID != "" && u.updateID == *req.UpdateInfo.Signature {

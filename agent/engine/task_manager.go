@@ -47,12 +47,13 @@ const (
 	// waitForPullCredentialsTimeout is the timeout agent trying to wait for pull
 	// credentials from acs, after the timeout it will check the credentials manager
 	// and start processing the task or start another round of waiting
-	waitForPullCredentialsTimeout         = 1 * time.Minute
-	defaultTaskSteadyStatePollInterval    = 5 * time.Minute
-	transitionPollTime                    = 5 * time.Second
-	stoppedSentWaitInterval               = 30 * time.Second
-	maxStoppedWaitTimes                   = 72 * time.Hour / stoppedSentWaitInterval
-	taskUnableToTransitionToStoppedReason = "TaskStateError: Agent could not progress task's state to stopped"
+	waitForPullCredentialsTimeout            = 1 * time.Minute
+	defaultTaskSteadyStatePollInterval       = 9 * time.Minute
+	defaultTaskSteadyStatePollIntervalJitter = 1 * time.Minute
+	transitionPollTime                       = 5 * time.Second
+	stoppedSentWaitInterval                  = 30 * time.Second
+	maxStoppedWaitTimes                      = 72 * time.Hour / stoppedSentWaitInterval
+	taskUnableToTransitionToStoppedReason    = "TaskStateError: Agent could not progress task's state to stopped"
 )
 
 var (

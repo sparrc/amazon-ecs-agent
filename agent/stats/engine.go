@@ -587,21 +587,15 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 			continue
 		}
 
-		if !container.statsQueue.enoughDatapointsInBuffer() &&
-			!container.statsQueue.resetThresholdElapsed(queueResetThreshold) {
-			seelog.Debugf("Stats not ready for container %s", dockerID)
+		if !container.statsQueue.enoughDatapointsInBuffer() {
+			seelog.Infof("Stats not ready for container %s", dockerID)
 			continue
 		}
 
 		// CPU and Memory are both critical, so skip the container if either of these fail.
-		cpuStatsSet, err := container.statsQueue.GetCPUStatsSet()
+		cpuStatsSet, memoryStatsSet, err := container.statsQueue.GetCPUAndMemoryStatsSet()
 		if err != nil {
 			seelog.Infof("cloudwatch metrics for container %v not collected, reason (cpu): %v", dockerID, err)
-			continue
-		}
-		memoryStatsSet, err := container.statsQueue.GetMemoryStatsSet()
-		if err != nil {
-			seelog.Infof("cloudwatch metrics for container %v not collected, reason (memory): %v", dockerID, err)
 			continue
 		}
 		containerMetric := &ecstcs.ContainerMetric{

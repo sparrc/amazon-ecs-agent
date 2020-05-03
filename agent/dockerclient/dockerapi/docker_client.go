@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
@@ -1373,7 +1372,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 	} else {
 		seelog.Infof("DockerGoClient: Starting to Poll for metrics for container %s", id)
 		//Sleep for a random period time up to the polling interval. This will help make containers ask for stats at different times
-		time.Sleep(time.Second * time.Duration(rand.Intn(int(dg.config.PollingMetricsWaitDuration.Seconds()))))
+		time.Sleep(retry.AddJitter(time.Nanosecond, dg.config.PollingMetricsWaitDuration))
 
 		statPollTicker := time.NewTicker(dg.config.PollingMetricsWaitDuration)
 		go func() {
@@ -1384,7 +1383,9 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 			for range statPollTicker.C {
 				// ContainerStats outputs an io.ReadCloser and an OSType
 				stream := false
+				now := time.Now()
 				resp, err = client.ContainerStats(subCtx, id, stream)
+				seelog.Infof("Got stats for container %s (%v) in %s", id, err, time.Since(now))
 				if err != nil {
 					errC <- fmt.Errorf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
 					return

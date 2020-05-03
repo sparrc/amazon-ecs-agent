@@ -33,11 +33,10 @@ const (
 
 // Queue abstracts a queue using UsageStats slice.
 type Queue struct {
-	buffer        []UsageStats
-	maxSize       int
-	lastResetTime time.Time
-	lastStat      *types.StatsJSON
-	lock          sync.RWMutex
+	buffer   []UsageStats
+	maxSize  int
+	lastStat *types.StatsJSON
+	lock     sync.RWMutex
 }
 
 // NewQueue creates a queue.
@@ -48,13 +47,15 @@ func NewQueue(maxSize int) *Queue {
 	}
 }
 
-// Reset resets the stats queue.
-func (queue *Queue) Reset() {
+func (queue *Queue) setLastStat(stat *types.StatsJSON) {
 	queue.lock.Lock()
 	defer queue.lock.Unlock()
-	queue.lastResetTime = time.Now()
-	queue.buffer = queue.buffer[:0]
+
+	queue.lastStat = stat
 }
+
+// Reset resets the stats queue.
+func (queue *Queue) Reset() {}
 
 // Add adds a new set of container stats to the queue.
 func (queue *Queue) Add(dockerStat *types.StatsJSON) error {
@@ -65,13 +66,6 @@ func (queue *Queue) Add(dockerStat *types.StatsJSON) error {
 	}
 	queue.add(stat)
 	return nil
-}
-
-func (queue *Queue) setLastStat(stat *types.StatsJSON) {
-	queue.lock.Lock()
-	defer queue.lock.Unlock()
-
-	queue.lastStat = stat
 }
 
 func (queue *Queue) add(rawStat *ContainerStats) {
@@ -101,7 +95,7 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 			stat.CPUUsagePerc = 100 * cpuUsageSinceLastStat / timeSinceLastStat
 		}
 
-		if queue.maxSize == queueLength {
+		if queueLength >= queue.maxSize {
 			// Remove first element if queue is full.
 			queue.buffer = queue.buffer[1:queueLength]
 		}
@@ -125,8 +119,64 @@ func (queue *Queue) GetLastStat() *types.StatsJSON {
 }
 
 // GetCPUStatsSet gets the stats set for CPU utilization.
-func (queue *Queue) GetCPUStatsSet() (*ecstcs.CWStatsSet, error) {
-	return queue.getCWStatsSet(getCPUUsagePerc)
+func (queue *Queue) GetCPUAndMemoryStatsSet() (*ecstcs.CWStatsSet, *ecstcs.CWStatsSet, error) {
+	queue.lock.Lock()
+	defer queue.lock.Unlock()
+
+	queueLength := len(queue.buffer)
+	if queueLength < 2 {
+		// Need at least 2 data points to calculate this.
+		return nil, nil, fmt.Errorf("need at least 2 data points in queue to calculate CW stats set")
+	}
+
+	memMin := math.MaxFloat64
+	memMax := -math.MaxFloat64
+	memSum := float64(0)
+	cpuMin := math.MaxFloat64
+	cpuMax := -math.MaxFloat64
+	cpuSum := float64(0)
+	sampleCount := int64(0)
+
+	oneMinuteAgo := time.Now().Add(-1 * time.Minute)
+	for _, stat := range queue.buffer {
+		if stat.Timestamp.Before(oneMinuteAgo) {
+			continue
+		}
+		cpuStat := float64(stat.CPUUsagePerc)
+		memStat := float64(stat.MemoryUsageInMegs)
+		if math.IsNaN(cpuStat) {
+			continue
+		}
+		if math.IsNaN(memStat) {
+			continue
+		}
+		sampleCount++
+
+		cpuMin = math.Min(cpuMin, cpuStat)
+		cpuMax = math.Max(cpuMax, cpuStat)
+		cpuSum += cpuStat
+
+		memMin = math.Min(memMin, memStat)
+		memMax = math.Max(memMax, memStat)
+		memSum += memStat
+	}
+
+	// don't emit metrics when sampleCount == 0
+	if sampleCount == 0 {
+		return nil, nil, fmt.Errorf("need at least 1 non-NaN data points in queue to calculate CW stats set")
+	}
+
+	return &ecstcs.CWStatsSet{
+			Max:         &cpuMax,
+			Min:         &cpuMin,
+			SampleCount: &sampleCount,
+			Sum:         &cpuSum,
+		}, &ecstcs.CWStatsSet{
+			Max:         &memMax,
+			Min:         &memMin,
+			SampleCount: &sampleCount,
+			Sum:         &memSum,
+		}, nil
 }
 
 // GetMemoryStatsSet gets the stats set for memory utilization.
@@ -304,13 +354,6 @@ func getInt64WithOverflow(uintStat uint64) (int64, int64) {
 
 type getUsageFloatFunc func(*UsageStats) float64
 type getUsageIntFunc func(*UsageStats) uint64
-
-func (queue *Queue) resetThresholdElapsed(timeout time.Duration) bool {
-	queue.lock.RLock()
-	defer queue.lock.RUnlock()
-	duration := time.Since(queue.lastResetTime)
-	return duration.Seconds() > timeout.Seconds()
-}
 
 func (queue *Queue) enoughDatapointsInBuffer() bool {
 	queue.lock.RLock()

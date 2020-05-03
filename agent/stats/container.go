@@ -56,7 +56,7 @@ func newStatsContainer(dockerID string, client dockerapi.DockerClient, resolver 
 
 func (container *StatsContainer) StartStatsCollection() {
 	// Create the queue to store utilization data from docker stats
-	container.statsQueue = NewQueue(ContainerStatsBufferLength)
+	container.statsQueue = NewQueue(15)
 	container.statsQueue.Reset()
 	go container.collect()
 }

@@ -269,7 +269,7 @@ func (cs *ClientServerImpl) forceCloseConnection() {
 	go func() {
 		closeChan <- cs.Close()
 	}()
-	ctx, cancel := context.WithTimeout(context.TODO(), wsConnectTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), wsConnectTimeout)
 	defer cancel()
 	select {
 	case closeErr := <-closeChan:

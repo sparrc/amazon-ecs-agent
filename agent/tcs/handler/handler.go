@@ -114,7 +114,7 @@ func startSession(
 	heartbeatTimeout, heartbeatJitter,
 	publishMetricsInterval time.Duration,
 	deregisterInstanceEventStream *eventstream.EventStream) error {
-	client := tcsclient.New(url, cfg, credentialProvider, statsEngine,
+	client := tcsclient.New(ctx, url, cfg, credentialProvider, statsEngine,
 		publishMetricsInterval, wsRWTimeout, cfg.DisableMetrics)
 	defer client.Close()
 

@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
@@ -30,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/credentials/rotatingcreds"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -173,6 +175,34 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		metadataManager = containermetadata.NewManager(dockerClient, cfg)
 	}
 
+	var credentialProvider *aws_credentials.Credentials
+	// TODO move os.Getenv into proper config flag parsing area of code
+	// TODO instantiate ec2Client and ec2MetadataClient using this credentials provider
+	// TODO do a refactor to centralize grabbing of ecs instance role credentials
+	// TODO test running instances without ecsInstanceRole in ec2
+	// TODO think up a better name for this env var...
+	if credentialsFile := os.Getenv("ECS_CREDENTIALS_FILE"); credentialsFile != "" {
+		seelog.Infof("ECS_CREDENTIALS_FILE defined, getting credentials from %s", credentialsFile)
+		credentialProvider = rotatingcreds.NewCredentials(credentialsFile, "default")
+		v, err := credentialProvider.Get()
+		if err != nil {
+			seelog.Errorf("Error getting ECS credentials from %s: %s. Falling back to default chain.", credentialsFile, err)
+			credentialProvider = defaults.CredChain(defaults.Config(), defaults.Handlers())
+		} else {
+			seelog.Infof("Successfully got instance credentials. Access Key ID XXXX%s from %s (%s)",
+				v.AccessKeyID[len(v.AccessKeyID)-4:], v.ProviderName, credentialsFile)
+		}
+	} else {
+		credentialProvider = defaults.CredChain(defaults.Config(), defaults.Handlers())
+		v, err := credentialProvider.Get()
+		if err != nil {
+			seelog.Errorf("Error getting ECS credentials from default cred chain: %s.", err)
+		} else {
+			seelog.Infof("Successfully got instance credentials. Access Key ID XXXX%s from %s",
+				v.AccessKeyID[len(v.AccessKeyID)-4:], v.ProviderName)
+		}
+	}
+
 	initialSeqNumber := int64(-1)
 	return &ecsAgent{
 		ctx:               ctx,
@@ -185,7 +215,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		// We instantiate our own credentialProvider for use in acs/tcs. This tries
 		// to mimic roughly the way it's instantiated by the SDK for a default
 		// session.
-		credentialProvider:          defaults.CredChain(defaults.Config(), defaults.Handlers()),
+		credentialProvider:          credentialProvider,
 		stateManagerFactory:         factory.NewStateManager(),
 		saveableOptionFactory:       factory.NewSaveableOption(),
 		pauseLoader:                 pause.New(),

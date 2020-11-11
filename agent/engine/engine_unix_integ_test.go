@@ -49,7 +49,7 @@ import (
 
 const (
 	testRegistryHost = "127.0.0.1:51670"
-	testBusyboxImage = testRegistryHost + "/busybox:latest"
+	testBusyboxImage = testRegistryHost + "/busybox:1.32.0"
 	testVolumeImage  = testRegistryHost + "/amazon/amazon-ecs-volumes-test:latest"
 	testFluentdImage = testRegistryHost + "/amazon/fluentd:latest"
 )

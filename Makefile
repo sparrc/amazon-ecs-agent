@@ -25,7 +25,7 @@ endif
 ifeq (${TARGET_OS},windows)
     GO_VERSION=1.12
 else
-    GO_VERSION=1.15
+    GO_VERSION=1.15.4
 endif
 
 all: docker

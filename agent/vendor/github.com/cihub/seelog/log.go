@@ -45,10 +45,9 @@ var Default LoggerInterface
 // Disabled logger that doesn't produce any output in any circumstances. It is neither closed nor flushed by a ReplaceLogger call.
 var Disabled LoggerInterface
 
-var pkgOperationsMutex *sync.Mutex
+var pkgOperationsMutex sync.RWMutex
 
 func init() {
-	pkgOperationsMutex = new(sync.Mutex)
 	var err error
 
 	if Default == nil {
@@ -197,31 +196,31 @@ func ReplaceLogger(logger LoggerInterface) error {
 // Tracef formats message according to format specifier
 // and writes to default logger with log level = Trace.
 func Tracef(format string, params ...interface{}) {
-	pkgOperationsMutex.Lock()
-	defer pkgOperationsMutex.Unlock()
+	pkgOperationsMutex.RLock()
+	defer pkgOperationsMutex.RUnlock()
 	Current.traceWithCallDepth(staticFuncCallDepth, newLogFormattedMessage(format, params))
 }
 
 // Debugf formats message according to format specifier
 // and writes to default logger with log level = Debug.
 func Debugf(format string, params ...interface{}) {
-	pkgOperationsMutex.Lock()
-	defer pkgOperationsMutex.Unlock()
+	pkgOperationsMutex.RLock()
+	defer pkgOperationsMutex.RUnlock()
 	Current.debugWithCallDepth(staticFuncCallDepth, newLogFormattedMessage(format, params))
 }
 
 // Infof formats message according to format specifier
 // and writes to default logger with log level = Info.
 func Infof(format string, params ...interface{}) {
-	pkgOperationsMutex.Lock()
-	defer pkgOperationsMutex.Unlock()
+	pkgOperationsMutex.RLock()
+	defer pkgOperationsMutex.RUnlock()
 	Current.infoWithCallDepth(staticFuncCallDepth, newLogFormattedMessage(format, params))
 }
 
 // Warnf formats message according to format specifier and writes to default logger with log level = Warn
 func Warnf(format string, params ...interface{}) error {
-	pkgOperationsMutex.Lock()
-	defer pkgOperationsMutex.Unlock()
+	pkgOperationsMutex.RLock()
+	defer pkgOperationsMutex.RUnlock()
 	message := newLogFormattedMessage(format, params)
 	Current.warnWithCallDepth(staticFuncCallDepth, message)
 	return errors.New(message.String())
@@ -229,8 +228,8 @@ func Warnf(format string, params ...interface{}) error {
 
 // Errorf formats message according to format specifier and writes to default logger with log level = Error
 func Errorf(format string, params ...interface{}) error {
-	pkgOperationsMutex.Lock()
-	defer pkgOperationsMutex.Unlock()
+	pkgOperationsMutex.RLock()
+	defer pkgOperationsMutex.RUnlock()
 	message := newLogFormattedMessage(format, params)
 	Current.errorWithCallDepth(staticFuncCallDepth, message)
 	return errors.New(message.String())
@@ -238,8 +237,8 @@ func Errorf(format string, params ...interface{}) error {
 
 // Criticalf formats message according to format specifier and writes to default logger with log level = Critical
 func Criticalf(format string, params ...interface{}) error {
-	pkgOperationsMutex.Lock()
-	defer pkgOperationsMutex.Unlock()
+	pkgOperationsMutex.RLock()
+	defer pkgOperationsMutex.RUnlock()
 	message := newLogFormattedMessage(format, params)
 	Current.criticalWithCallDepth(staticFuncCallDepth, message)
 	return errors.New(message.String())
@@ -247,29 +246,29 @@ func Criticalf(format string, params ...interface{}) error {
 
 // Trace formats message using the default formats for its operands and writes to default logger with log level = Trace
 func Trace(v ...interface{}) {
-	pkgOperationsMutex.Lock()
-	defer pkgOperationsMutex.Unlock()
+	pkgOperationsMutex.RLock()
+	defer pkgOperationsMutex.RUnlock()
 	Current.traceWithCallDepth(staticFuncCallDepth, newLogMessage(v))
 }
 
 // Debug formats message using the default formats for its operands and writes to default logger with log level = Debug
 func Debug(v ...interface{}) {
-	pkgOperationsMutex.Lock()
-	defer pkgOperationsMutex.Unlock()
+	pkgOperationsMutex.RLock()
+	defer pkgOperationsMutex.RUnlock()
 	Current.debugWithCallDepth(staticFuncCallDepth, newLogMessage(v))
 }
 
 // Info formats message using the default formats for its operands and writes to default logger with log level = Info
 func Info(v ...interface{}) {
-	pkgOperationsMutex.Lock()
-	defer pkgOperationsMutex.Unlock()
+	pkgOperationsMutex.RLock()
+	defer pkgOperationsMutex.RUnlock()
 	Current.infoWithCallDepth(staticFuncCallDepth, newLogMessage(v))
 }
 
 // Warn formats message using the default formats for its operands and writes to default logger with log level = Warn
 func Warn(v ...interface{}) error {
-	pkgOperationsMutex.Lock()
-	defer pkgOperationsMutex.Unlock()
+	pkgOperationsMutex.RLock()
+	defer pkgOperationsMutex.RUnlock()
 	message := newLogMessage(v)
 	Current.warnWithCallDepth(staticFuncCallDepth, message)
 	return errors.New(message.String())
@@ -277,8 +276,8 @@ func Warn(v ...interface{}) error {
 
 // Error formats message using the default formats for its operands and writes to default logger with log level = Error
 func Error(v ...interface{}) error {
-	pkgOperationsMutex.Lock()
-	defer pkgOperationsMutex.Unlock()
+	pkgOperationsMutex.RLock()
+	defer pkgOperationsMutex.RUnlock()
 	message := newLogMessage(v)
 	Current.errorWithCallDepth(staticFuncCallDepth, message)
 	return errors.New(message.String())
@@ -286,8 +285,8 @@ func Error(v ...interface{}) error {
 
 // Critical formats message using the default formats for its operands and writes to default logger with log level = Critical
 func Critical(v ...interface{}) error {
-	pkgOperationsMutex.Lock()
-	defer pkgOperationsMutex.Unlock()
+	pkgOperationsMutex.RLock()
+	defer pkgOperationsMutex.RUnlock()
 	message := newLogMessage(v)
 	Current.criticalWithCallDepth(staticFuncCallDepth, message)
 	return errors.New(message.String())
@@ -301,7 +300,7 @@ func Critical(v ...interface{}) error {
 //
 // Call this method when your app is going to shut down not to lose any log messages.
 func Flush() {
-	pkgOperationsMutex.Lock()
-	defer pkgOperationsMutex.Unlock()
+	pkgOperationsMutex.RLock()
+	defer pkgOperationsMutex.RUnlock()
 	Current.Flush()
 }

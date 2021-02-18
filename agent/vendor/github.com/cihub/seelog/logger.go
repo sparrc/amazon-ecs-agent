@@ -133,7 +133,7 @@ type commonLogger struct {
 	contextCache  allowedContextCache // Caches whether log is enabled for specific "full path-func name-level" sets
 	closed        bool                // 'true' when all writers are closed, all data is flushed, logger is unusable. Must be accessed while holding closedM
 	closedM       sync.RWMutex
-	m             sync.Mutex // Mutex for main operations
+	m             sync.RWMutex // Mutex for main operations
 	unusedLevels  []bool
 	innerLogger   innerLoggerInterface
 	addStackDepth int // Additional stack depth needed for correct seelog caller context detection
@@ -284,12 +284,11 @@ func (cLogger *commonLogger) log(level LogLevel, message fmt.Stringer, stackCall
 	if cLogger.unusedLevels[level] {
 		return
 	}
-	cLogger.m.Lock()
-	defer cLogger.m.Unlock()
-
 	if cLogger.Closed() {
 		return
 	}
+	cLogger.m.RLock()
+	defer cLogger.m.RUnlock()
 	context, _ := specifyContext(stackCallDepth+cLogger.addStackDepth, cLogger.customContext)
 	// Context errors are not reported because there are situations
 	// in which context errors are normal Seelog usage cases. For

@@ -143,7 +143,7 @@ func reloadConfig() {
 
 func seelogConfig() string {
 	c := `
-<seelog type="asyncloop">
+<seelog type="sync">
 	<outputs formatid="` + Config.outputFormat + `">
 		<filter levels="` + getLevelList(Config.driverLevel) + `">
 			<console />`

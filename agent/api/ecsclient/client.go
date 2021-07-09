@@ -225,11 +225,6 @@ func (client *APIECSClient) setInstanceIdentity(registerRequest ecs.RegisterCont
 
 	if client.config.NoIID {
 		seelog.Info("Fetching Instance ID Document has been disabled")
-		ip, err := getPrivateIP()
-		if err == nil {
-			instanceIdentityDoc = fmt.Sprintf(`{"privateIp":"%s"}`, ip)
-			seelog.Infof("Got private IP address, setting instance identity doc to only this: %s", instanceIdentityDoc)
-		}
 		registerRequest.InstanceIdentityDocument = &instanceIdentityDoc
 		registerRequest.InstanceIdentityDocumentSignature = &instanceIdentitySignature
 		return registerRequest
@@ -356,6 +351,13 @@ func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
 			Name:  aws.String(cpuArchAttrName),
 			Value: aws.String(getCPUArch()),
 		})
+		privateIp, err := getPrivateIP()
+		if err == nil {
+			attrs = append(attrs, &ecs.Attribute{
+				Name:  aws.String("ecs.private-ip-addr"),
+				Value: aws.String(privateIp.String()),
+			})
+		}
 	}
 	return attrs
 }

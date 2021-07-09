@@ -16,6 +16,7 @@ package ecsclient
 import (
 	"errors"
 	"fmt"
+	"net"
 	"runtime"
 	"strings"
 	"time"
@@ -208,12 +209,27 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	return aws.StringValue(resp.ContainerInstance.ContainerInstanceArn), availabilityzone, err
 }
 
+func getPrivateIP() (net.IP, error) {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return []byte(""), err
+	}
+	defer conn.Close()
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP, nil
+}
+
 func (client *APIECSClient) setInstanceIdentity(registerRequest ecs.RegisterContainerInstanceInput) ecs.RegisterContainerInstanceInput {
 	instanceIdentityDoc := ""
 	instanceIdentitySignature := ""
 
 	if client.config.NoIID {
 		seelog.Info("Fetching Instance ID Document has been disabled")
+		ip, err := getPrivateIP()
+		if err == nil {
+			instanceIdentityDoc = fmt.Sprintf(`{"privateIp":"%s"}`, ip)
+			seelog.Infof("Got private IP address, setting instance identity doc to only this: %s", instanceIdentityDoc)
+		}
 		registerRequest.InstanceIdentityDocument = &instanceIdentityDoc
 		registerRequest.InstanceIdentityDocumentSignature = &instanceIdentitySignature
 		return registerRequest

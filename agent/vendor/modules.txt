@@ -61,7 +61,7 @@ github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
 # github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20190829210224-55d4fd2e6f35
 github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit
-# github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
+# github.com/beorn7/perks v1.0.0
 github.com/beorn7/perks/quantile
 # github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 github.com/cihub/seelog
@@ -75,12 +75,13 @@ github.com/containerd/cgroups
 github.com/containerd/containerd/errdefs
 # github.com/containerd/continuity v0.0.0-20181023183536-c220ac4f01b8
 github.com/containerd/continuity/pathdriver
-# github.com/containernetworking/cni v0.7.1
+# github.com/containernetworking/cni v0.8.1
 github.com/containernetworking/cni/libcni
 github.com/containernetworking/cni/pkg/invoke
 github.com/containernetworking/cni/pkg/types
 github.com/containernetworking/cni/pkg/types/020
 github.com/containernetworking/cni/pkg/types/current
+github.com/containernetworking/cni/pkg/utils
 github.com/containernetworking/cni/pkg/version
 # github.com/containernetworking/plugins v0.8.6 => github.com/containernetworking/plugins v0.8.6
 github.com/containernetworking/plugins/pkg/ns
@@ -124,11 +125,11 @@ github.com/docker/docker/pkg/mount
 github.com/docker/docker/pkg/plugins
 github.com/docker/docker/pkg/plugins/transport
 github.com/docker/docker/pkg/system
-# github.com/docker/go-connections v0.3.0
+# github.com/docker/go-connections v0.4.0
 github.com/docker/go-connections/nat
 github.com/docker/go-connections/sockets
 github.com/docker/go-connections/tlsconfig
-# github.com/docker/go-units v0.3.2
+# github.com/docker/go-units v0.4.0
 github.com/docker/go-units
 # github.com/godbus/dbus v4.1.0+incompatible => github.com/godbus/dbus v4.1.0+incompatible
 github.com/godbus/dbus
@@ -143,11 +144,9 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/gorilla/context v1.1.1
-github.com/gorilla/context
-# github.com/gorilla/mux v1.6.2
+# github.com/gorilla/mux v1.8.0
 github.com/gorilla/mux
-# github.com/gorilla/websocket v1.2.0
+# github.com/gorilla/websocket v1.4.2
 github.com/gorilla/websocket
 # github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
 github.com/hectane/go-acl/api
@@ -172,22 +171,20 @@ github.com/pborman/uuid
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
-# github.com/prometheus/client_golang v0.9.0
+# github.com/prometheus/client_golang v0.9.4
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
 # github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4 => github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.0.0-20181020173914-7e9e6cabbd39
+# github.com/prometheus/common v0.4.1
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
 github.com/prometheus/common/model
-# github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d
+# github.com/prometheus/procfs v0.0.2
 github.com/prometheus/procfs
-github.com/prometheus/procfs/internal/util
-github.com/prometheus/procfs/nfs
-github.com/prometheus/procfs/xfs
-# github.com/sirupsen/logrus v1.1.1 => github.com/sirupsen/logrus v1.1.1
+github.com/prometheus/procfs/internal/fs
+# github.com/sirupsen/logrus v1.2.0 => github.com/sirupsen/logrus v1.1.1
 github.com/sirupsen/logrus
 # github.com/stretchr/testify v1.5.1 => github.com/stretchr/testify v1.2.2
 github.com/stretchr/testify/assert
@@ -200,19 +197,27 @@ github.com/vishvananda/netlink/nl
 github.com/vishvananda/netns
 # go.etcd.io/bbolt v1.3.6
 go.etcd.io/bbolt
-# golang.org/x/crypto v0.0.0-20181009213950-7c1a557ab941 => golang.org/x/crypto v0.0.0-20171113213409-9f005a07e0d3
+# golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2 => golang.org/x/crypto v0.0.0-20171113213409-9f005a07e0d3
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20201110031124-69a78807bb2b => golang.org/x/net v0.0.0-20171107184841-a337091b0525
+# golang.org/x/net v0.0.0-20210525063256-abc453219eb5 => golang.org/x/net v0.0.0-20191204025024-5ee1b9f4859a
 golang.org/x/net/context
 golang.org/x/net/html
 golang.org/x/net/html/atom
+golang.org/x/net/http/httpproxy
+golang.org/x/net/idna
+golang.org/x/net/internal/socks
 golang.org/x/net/proxy
-# golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d => golang.org/x/sys v0.0.0-20171114162044-bf42f188b9bc
+# golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d => golang.org/x/sys v0.0.0-20190830141801-acfa387b8d69
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
 golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/eventlog
+# golang.org/x/text v0.3.6
+golang.org/x/text/secure/bidirule
+golang.org/x/text/transform
+golang.org/x/text/unicode/bidi
+golang.org/x/text/unicode/norm
 # golang.org/x/time v0.0.0-20170927054726-6dc17368e09b
 golang.org/x/time/rate
 # golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135 => golang.org/x/tools v0.0.0-20171114152239-bd4635fd2559

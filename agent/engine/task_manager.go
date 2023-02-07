@@ -459,6 +459,13 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		logger.Critical("State error; invoked with another task's container!", eventLogFields)
 		return
 	}
+	taskDesiredStatus := mtask.GetDesiredStatus()
+	if event.Status.String() == "STOPPED" &&
+		mtask.doesContainerHaveRestartPolicy(container) &&
+		taskDesiredStatus != apitaskstatus.TaskStopped {
+		logger.Info("Ignoring container stopped event, because container has restart policy", eventLogFields)
+		return
+	}
 
 	// If this is a backwards transition stopped->running, the first time set it
 	// to be known running so it will be stopped. Subsequently ignore these backward transitions
@@ -743,6 +750,10 @@ func (mtask *managedTask) isContainerFound(container *apicontainer.Container) bo
 		}
 	}
 	return found
+}
+
+func (mtask *managedTask) doesContainerHaveRestartPolicy(container *apicontainer.Container) bool {
+	return true
 }
 
 func (mtask *managedTask) isResourceFound(res taskresource.TaskResource) bool {

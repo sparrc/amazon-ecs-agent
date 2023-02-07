@@ -48,6 +48,7 @@ import (
 
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
@@ -545,6 +546,10 @@ func (dg *dockerGoClient) CreateContainer(ctx context.Context,
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
+	restartPolicy := container.RestartPolicy{
+		Name: "always",
+	}
+	hostConfig.RestartPolicy = restartPolicy
 	go func() { response <- dg.createContainer(ctx, config, hostConfig, name) }()
 
 	// Wait until we get a response or for the 'done' context channel

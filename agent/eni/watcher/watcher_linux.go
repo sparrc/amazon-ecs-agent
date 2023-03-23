@@ -112,6 +112,10 @@ func (eniWatcher *ENIWatcher) reconcileOnce(withRetry bool) error {
 	for mac := range currentState {
 		if withRetry {
 			go func(ctx context.Context, macAddress string, timeout time.Duration) {
+				logger.Info("Sending ENI State Change With Retries", logger.Fields{
+					field.Error: nil,
+				})
+				time.Sleep(sendENIStateChangeRetryTimeout * 2)
 				if err := eniWatcher.sendENIStateChangeWithRetries(ctx, macAddress, timeout); err != nil {
 					logger.Error("Unable to send state ENI change", logger.Fields{
 						field.Error: err,

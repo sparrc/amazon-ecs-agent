@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/aws-sdk-go/aws"
 )
 
@@ -104,11 +105,17 @@ func IAMRoleCredentialsFromACS(roleCredentials *ecsacs.IAMRoleCredentials, roleT
 	}
 }
 
-// NewManager creates a new credentials manager object
-func NewManager() Manager {
-	return &credentialsManager{
+var DefaultManager Manager
+
+func init() {
+	DefaultManager = &credentialsManager{
 		idToTaskCredentials: make(map[string]TaskIAMRoleCredentials),
 	}
+}
+
+// NewManager creates a new credentials manager object
+func NewManager() Manager {
+	return DefaultManager
 }
 
 // SetTaskCredentials adds or updates credentials in the credentials manager
@@ -127,6 +134,13 @@ func (manager *credentialsManager) SetTaskCredentials(taskCredentials *TaskIAMRo
 		return fmt.Errorf("task ARN is empty")
 	}
 
+	logger.Info("Setting credentials", logger.Fields{
+		"taskArn":       taskCredentials.ARN,
+		"credentialsID": credentials.CredentialsID,
+		"roleArn":       credentials.RoleArn,
+		"roleType":      credentials.RoleType,
+	})
+
 	manager.idToTaskCredentials[credentials.CredentialsID] = TaskIAMRoleCredentials{
 		ARN:                taskCredentials.ARN,
 		IAMRoleCredentials: taskCredentials.GetIAMRoleCredentials(),
@@ -139,6 +153,10 @@ func (manager *credentialsManager) SetTaskCredentials(taskCredentials *TaskIAMRo
 func (manager *credentialsManager) GetTaskCredentials(id string) (TaskIAMRoleCredentials, bool) {
 	manager.taskCredentialsLock.RLock()
 	defer manager.taskCredentialsLock.RUnlock()
+
+	logger.Info("Getting task credentials", logger.Fields{
+		"credentialsID": id,
+	})
 
 	taskCredentials, ok := manager.idToTaskCredentials[id]
 

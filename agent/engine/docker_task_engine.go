@@ -412,11 +412,12 @@ func (engine *DockerTaskEngine) isTaskManaged(arn string) bool {
 
 // synchronizeState explicitly goes through each docker container stored in
 // "state" and updates its KnownStatus appropriately, as well as queueing up
-// events to push upstream. It also initializes some fields of task resources and eni attachments that won't be populated
-// from loading state file.
+// events to push upstream. It also initializes some fields of task resources
+// and eni attachments that won't be populated from loading state file.
 func (engine *DockerTaskEngine) synchronizeState() {
 	engine.tasksLock.Lock()
 	defer engine.tasksLock.Unlock()
+	logger.Info("Docker Task Engine: synchronizing state")
 	imageStates := engine.state.AllImageStates()
 	if len(imageStates) != 0 {
 		engine.imageManager.AddAllImageStates(imageStates)
@@ -460,14 +461,57 @@ func (engine *DockerTaskEngine) synchronizeState() {
 	}
 
 	tasks := engine.state.AllTasks()
+	for _, task := range tasks {
+		logger.Info("Docker Task Engine: found a task", task.Fields())
+	}
 	tasksToStart := engine.filterTasksToStartUnsafe(tasks)
+	for _, task := range tasksToStart {
+		logger.Info("Docker Task Engine: filtered task to be started", task.Fields())
+	}
 	for _, task := range tasks {
 		task.InitializeResources(engine.resourceFields)
 		engine.saveTaskData(task)
 	}
 
 	for _, task := range tasksToStart {
+		// set each task's _known_ status to NONE so that engine actually starts it.
+		// (assuming _desired_ status is RUNNING)
+		task.ResetTask()
 		engine.startTask(task)
+	}
+}
+
+func (engine *DockerTaskEngine) waitForTaskCreds(task *apitask.Task) {
+	// wait for task's credentials payload(s) to be received
+	// these are not cached and must be received from ACS _before_ we try to
+	// restart a task.
+	// TODO i dont think this works for tasks without a taskRole or taskExecutionRole
+	//      defined. How to identify and support these?
+	if task.GetDesiredStatus() != apitaskstatus.TaskRunning {
+		// dont wait if task is not desired running
+		return
+	}
+	taskCreds := task.GetCredentialsID()
+	if taskCreds != "" {
+		for {
+			logger.Info("Docker Task Engine: waiting for task IAM role creds", task.Fields())
+			_, ok := credentials.DefaultManager.GetTaskCredentials(taskCreds)
+			if ok {
+				break
+			}
+			time.Sleep(time.Second)
+		}
+	}
+	taskExecutionCreds := task.GetExecutionCredentialsID()
+	if taskExecutionCreds != "" {
+		for {
+			logger.Info("Docker Task Engine: waiting for task execution role creds", task.Fields())
+			_, ok := credentials.DefaultManager.GetTaskCredentials(taskExecutionCreds)
+			if ok {
+				break
+			}
+			time.Sleep(time.Second)
+		}
 	}
 }
 
@@ -478,6 +522,12 @@ func (engine *DockerTaskEngine) filterTasksToStartUnsafe(tasks []*apitask.Task) 
 	var tasksToStart []*apitask.Task
 	for _, task := range tasks {
 		conts, ok := engine.state.ContainerMapByArn(task.Arn)
+		// TODO setting this to false means that the task will be added to the list of tasks
+		// to start up on instance start. To fully support this feature, we will need to figure
+		// out how to "synchronizeContainerStatus" to restart correctly. As of now that
+		// function would set the desired status of the containers/task to STOPPED when it
+		// finds the container(s) in a stopped state.
+		ok = false // TODO DEBUG this is a hackaround to "start" all tasks
 		if !ok {
 			// task hasn't started processing, no need to check container status
 			tasksToStart = append(tasksToStart, task)
@@ -810,6 +860,7 @@ func (engine *DockerTaskEngine) startTask(task *apitask.Task) {
 	// Create a channel that may be used to communicate with this task, survey
 	// what tasks need to be waited for for this one to start, and then spin off
 	// a goroutine to oversee this task
+	logger.Info("Docker Task Engine: Starting task", task.Fields())
 
 	thisTask := engine.newManagedTask(task)
 	thisTask._time = engine.time()
@@ -1130,7 +1181,7 @@ func (engine *DockerTaskEngine) concurrentPull(task *apitask.Task, container *ap
 			field.TaskID:    task.GetID(),
 			field.Container: container.Name,
 			field.Image:     container.Image,
-			"pullStart":     pullStart.String(),
+			"pullStart":     pullStart.UTC().Format(time.RFC3339),
 		})
 
 	}

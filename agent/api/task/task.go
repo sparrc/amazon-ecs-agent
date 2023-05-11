@@ -2659,6 +2659,40 @@ func (task *Task) updateResourceDesiredStatusUnsafe(taskDesiredStatus apitasksta
 	}
 }
 
+func (task *Task) ResetTask() bool {
+	if len(task.Containers) == 0 {
+		logger.Error("No containers in the task", logger.Fields{
+			field.TaskID: task.GetID(),
+		})
+		return false
+	}
+
+	taskFields := task.Fields()
+	// reset status of tasks last known to be running
+	taskStatus := task.GetKnownStatus()
+	if taskStatus == apitaskstatus.TaskRunning {
+		logger.Info("Resetting task for restart", taskFields)
+		task.SetKnownStatus(apitaskstatus.TaskStatusNone)
+	} else {
+		logger.Info("Task was not running at reboot, not resetting", taskFields)
+		return true
+	}
+
+	// reset known status of all containers that were last known to be running
+	for _, container := range task.Containers {
+		status := container.GetKnownStatus()
+		if status == apicontainerstatus.ContainerRunning {
+			logger.Info("Resetting container for restart", container.Fields(), taskFields)
+			container.SetKnownExitCode(nil)
+			container.SetKnownStatus(apicontainerstatus.ContainerCreated)
+		} else {
+			logger.Info("Container was not running at reboot, not resetting", container.Fields(), taskFields)
+		}
+	}
+
+	return true
+}
+
 // SetKnownStatus sets the known status of the task
 func (task *Task) SetKnownStatus(status apitaskstatus.TaskStatus) {
 	task.setKnownStatus(status)
@@ -2898,6 +2932,14 @@ func (task *Task) GetExecutionStoppedAt() time.Time {
 	return task.ExecutionStoppedAtUnsafe
 }
 
+// Fields
+func (task *Task) Fields() logger.Fields {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.fieldsUnsafe()
+}
+
 // String returns a human readable string representation of this object
 func (task *Task) String() string {
 	return task.stringUnsafe()
@@ -2960,7 +3002,7 @@ func (task *Task) RecordExecutionStoppedAt(container *apicontainer.Container) {
 	logger.Info("Essential container stopped; recording task stopped time", logger.Fields{
 		field.TaskID:    task.GetID(),
 		field.Container: container.Name,
-		field.Time:      now.String(),
+		field.Time:      now.UTC().Format(time.RFC3339),
 	})
 }
 
@@ -3264,9 +3306,11 @@ func (task *Task) getASMSecretsResource() ([]taskresource.TaskResource, bool) {
 func (task *Task) InitializeResources(resourceFields *taskresource.ResourceFields) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
+	fields := task.fieldsUnsafe()
 
 	for _, resources := range task.ResourcesMapUnsafe {
 		for _, resource := range resources {
+			logger.Info(fmt.Sprintf("Initializing task resource: %s", resource.GetName()), fields)
 			resource.Initialize(resourceFields, task.KnownStatusUnsafe, task.DesiredStatusUnsafe)
 		}
 	}

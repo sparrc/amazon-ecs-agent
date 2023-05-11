@@ -196,6 +196,7 @@ func (engine *DockerTaskEngine) newManagedTask(task *apitask.Task) *managedTask 
 // loop of receiving messages and attempting to take action based on those
 // messages.
 func (mtask *managedTask) overseeTask() {
+	mtask.engine.waitForTaskCreds(mtask.Task)
 	// Do a single updatestatus at the beginning to create the container
 	// `desiredstatus`es which are a construct of the engine used only here,
 	// not present on the backend
@@ -224,7 +225,7 @@ func (mtask *managedTask) overseeTask() {
 		if !mtask.GetKnownStatus().Terminal() {
 			// If we aren't terminal and we aren't steady state, we should be
 			// able to move some containers along.
-			logger.Debug("Task not steady state or terminal; progressing it", logger.Fields{
+			logger.Info("Task not steady state or terminal; progressing it", logger.Fields{
 				field.TaskID: mtask.GetID(),
 			})
 
@@ -242,7 +243,9 @@ func (mtask *managedTask) overseeTask() {
 	})
 	mtask.engine.checkTearDownPauseContainer(mtask.Task)
 	// TODO [SC]: We need to also tear down pause containets in bridge mode for SC-enabled tasks
-	mtask.cleanupCredentials()
+
+	// persistent tasks might come back, so dont cleanup yet.
+	//mtask.cleanupCredentials()
 	if mtask.StopSequenceNumber != 0 {
 		logger.Debug("Marking done for this sequence", logger.Fields{
 			field.TaskID:   mtask.GetID(),
@@ -356,6 +359,10 @@ func (mtask *managedTask) steadyState() bool {
 // due to its potential usage in the later phase of the task cleanup such as sending logs)
 func (mtask *managedTask) cleanupCredentials() {
 	taskCredentialsID := mtask.GetCredentialsID()
+	logger.Info("Cleaning up task credentials", logger.Fields{
+		field.TaskID:    mtask.GetID(),
+		"credentialsID": taskCredentialsID,
+	})
 	if taskCredentialsID != "" {
 		mtask.credentialsManager.RemoveCredentials(taskCredentialsID)
 	}
@@ -980,7 +987,7 @@ func (mtask *managedTask) handleContainerStoppedTransitionError(event dockerapi.
 // docker completes.
 // Container changes may also prompt the task status to change as well.
 func (mtask *managedTask) progressTask() {
-	logger.Debug("Progressing containers and resources in task", logger.Fields{
+	logger.Info("Progressing containers and resources in task", logger.Fields{
 		field.TaskID: mtask.GetID(),
 	})
 	// max number of transitions length to ensure writes will never block on
@@ -1004,6 +1011,7 @@ func (mtask *managedTask) progressTask() {
 
 	anyContainerTransition, blockedDependencies, contTransitions, reasons := mtask.startContainerTransitions(
 		func(container *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
+			logger.Info("Transitioning container", container.Fields(), logger.Fields{"nextStatus": nextStatus.String()})
 			mtask.engine.transitionContainer(mtask.Task, container, nextStatus)
 			transitionChange <- struct{}{}
 			transitionChangeEntity <- container.Name
@@ -1520,6 +1528,9 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 		})
 		mtask.credentialsManager.RemoveCredentials(taskExecutionCredentialsID)
 	}
+
+	// cleanup task credentials endpoint
+	mtask.cleanupCredentials()
 
 	// The last thing to do here is to cancel the context, which should cancel
 	// all outstanding go routines associated with this managed task.

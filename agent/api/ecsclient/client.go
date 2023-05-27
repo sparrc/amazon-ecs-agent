@@ -199,6 +199,9 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 		return "", "", err
 	}
 
+	seelog.Info(resp.String())
+	seelog.Info(resp.GoString())
+
 	var availabilityzone = ""
 	if resp != nil {
 		for _, attr := range resp.ContainerInstance.Attributes {

@@ -2681,13 +2681,23 @@ func (task *Task) ResetTask() bool {
 	// reset known status of all containers that were last known to be running
 	for _, container := range task.Containers {
 		status := container.GetKnownStatus()
-		if status == apicontainerstatus.ContainerRunning {
-			logger.Info("Resetting container for restart", container.Fields(), taskFields)
-			container.SetKnownExitCode(nil)
+		logger.Info("Resetting container for restart", container.Fields(), taskFields)
+		container.SetKnownExitCode(nil)
+		if status > apicontainerstatus.ContainerCreated {
+			// if a container's status is "greater than" created, reset it to created.
+			// Statusses greater than created include running, provisioned, and stopped.
+			// see https://pkg.go.dev/github.com/aws/amazon-ecs-agent/agent/api/container/status
 			container.SetKnownStatus(apicontainerstatus.ContainerCreated)
-		} else {
-			logger.Info("Container was not running at reboot, not resetting", container.Fields(), taskFields)
 		}
+
+		// // this code only resets containers that were known running at reboot:
+		// if status == apicontainerstatus.ContainerRunning {
+		// 	logger.Info("Resetting container for restart", container.Fields(), taskFields)
+		// 	container.SetKnownExitCode(nil)
+		// 	container.SetKnownStatus(apicontainerstatus.ContainerCreated)
+		// } else {
+		// 	logger.Info("Container was not running at reboot, not resetting", container.Fields(), taskFields)
+		// }
 	}
 
 	return true

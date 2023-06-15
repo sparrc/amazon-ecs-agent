@@ -47,7 +47,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -1559,7 +1558,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		reInvalidChars := regexp.MustCompile("[^A-Za-z0-9-]+")
 		name := reInvalidChars.ReplaceAllString(container.Name, "")
 
-		dockerContainerName = "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + utils.RandHex()
+		dockerContainerName = "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + task.GetID()
 
 		// Pre-add the container in case we stop before the next, more useful,
 		// AddContainer call. This ensures we have a way to get the container if

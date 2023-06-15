@@ -715,6 +715,12 @@ func (dg *dockerGoClient) createContainer(ctx context.Context,
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
+	// use the ecs0 'user-defined' network
+	if hostConfig.NetworkMode.IsBridge() || hostConfig.NetworkMode.IsDefault() {
+		seelog.Infof("DockerGoClient: creating container on ecs0 network")
+		hostConfig.NetworkMode = "ecs0"
+	}
+
 	dockerContainer, err := client.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, nil, name)
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotCreateContainerError{err}}

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/backoff"
@@ -44,6 +45,7 @@ const (
 	serviceStartRetryMultiplier   = 2.0
 	serviceStartMaxRetries        = math.MaxInt64 // essentially retry forever
 	failedContainerLogWindowSize  = "200"         // as string for log config
+	mountFilePermission           = 0755
 )
 
 // Injection point for testing purposes
@@ -129,6 +131,8 @@ func (e *Engine) PreStart() error {
 	if err != nil {
 		return engineError("could not create route to the credentials proxy", err)
 	}
+	// Add the EBS Task Attach host mount point
+	err = os.MkdirAll(config.MountDirectoryEBS(), mountFilePermission)
 
 	docker, err := getDockerClient()
 	if err != nil {

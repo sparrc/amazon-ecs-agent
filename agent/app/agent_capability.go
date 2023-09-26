@@ -499,6 +499,10 @@ func (agent *ecsAgent) appendServiceConnectCapabilities(capabilities []*ecs.Attr
 	return capabilities
 }
 
+//func (agent *ecsAgent) appendEFSTaskAttachCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+
+//}
+
 func defaultGetSubDirectories(path string) ([]string, error) {
 	var subDirectories []string
 

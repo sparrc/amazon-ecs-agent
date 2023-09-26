@@ -187,6 +187,11 @@ func CacheState() string {
 	return CacheDirectory() + "/state"
 }
 
+// MountDirectoryEFS returns the location on disk where EBS volumes will be mounted
+func MountDirectoryEBS() string {
+	return directoryPrefix + "/mnt/ecs/ebs"
+}
+
 // AgentTarball returns the location on disk of the cached Agent image
 func AgentTarball() string {
 	return CacheDirectory() + "/ecs-agent.tar"

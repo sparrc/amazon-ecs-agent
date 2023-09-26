@@ -26,7 +26,7 @@ const (
 	imageTarPath                          = "/var/lib/ecs/deps/daemons"
 	imageTagDefault                       = "latest"
 	defaultAgentCommunicationPathHostRoot = "/var/run/ecs"
-	defaultApplicationLogPathHostRoot     = "/var/log/ecs"
+	defaultApplicationLogPathHostRoot     = "/var/log/ecs/daemons"
 	defaultAgentCommunicationMount        = "agentCommunicationMount"
 	defaultApplicationLogMount            = "applicationLogMount"
 )
@@ -84,7 +84,49 @@ func NewManagedDaemon(
 // defined in /var/lib/ecs/deps/daemons and will return an array
 // of valid ManagedDeamon objects
 func ImportAll() ([]*ManagedDaemon, error) {
-	return []*ManagedDaemon{}, nil
+	// TODO parse taskdef json files in parameterized dir ie /deps/daemons
+	// TODO validate that each daemon's layers are loaded or that daemon has a corresponding image tar
+	ebsManagedDaemon := NewManagedDaemon("ebs-csi-driver", "latest")
+	// add required mounts
+	ebsMounts := []*MountPoint{
+		&MountPoint{
+			SourceVolumeID:       "agentCommunicationMount",
+			SourceVolume:         "agentCommunicationMount",
+			SourceVolumeType:     "host",
+			SourceVolumeHostPath: "/var/run/ecs/ebs-csi-driver/",
+			ContainerPath:        "/csi-driver/",
+		},
+		&MountPoint{
+			SourceVolumeID:       "applicationLogMount",
+			SourceVolume:         "applicationLogMount",
+			SourceVolumeType:     "host",
+			SourceVolumeHostPath: "/var/log/ecs/daemons/ebs-csi-driver/log/",
+			ContainerPath:        "/var/log/",
+		},
+		&MountPoint{
+			SourceVolumeID:       "sharedMounts",
+			SourceVolume:         "sharedMounts",
+			SourceVolumeType:     "host",
+			SourceVolumeHostPath: "/mnt/ecs/ebs",
+			ContainerPath:        "/mnt/ecs/ebs",
+			PropagationShared:    true,
+		},
+	}
+	if err := ebsManagedDaemon.SetMountPoints(ebsMounts); err != nil {
+		return nil, fmt.Errorf("Unable to import EBS ManagedDaemon: %s", err)
+	}
+	var thisCommand []string
+	thisCommand = append(thisCommand, "--endpoint=unix://csi-driver/csi-driver.sock")
+	thisCommand = append(thisCommand, "--log_dir=/var/log")
+	sysAdmin := "SYS_ADMIN"
+	addCapabilities := []*string{&sysAdmin}
+	kernelCapabilities := ecsacs.KernelCapabilities{Add: addCapabilities}
+	ebsLinuxParams := ecsacs.LinuxParameters{Capabilities: &kernelCapabilities}
+	ebsManagedDaemon.linuxParameters = &ebsLinuxParams
+
+	ebsManagedDaemon.command = thisCommand
+	ebsManagedDaemon.privileged = true
+	return []*ManagedDaemon{ebsManagedDaemon}, nil
 }
 
 func (md *ManagedDaemon) GetLinuxParameters() *ecsacs.LinuxParameters {
@@ -173,7 +215,7 @@ func (md *ManagedDaemon) SetMountPoints(mountPoints []*MountPoint) error {
 			mp.SourceVolumeHostPath = fmt.Sprintf("%s/%s/", defaultAgentCommunicationPathHostRoot, md.imageName)
 			md.agentCommunicationMount = mp
 		} else if mp.SourceVolumeID == defaultApplicationLogMount {
-			mp.SourceVolumeHostPath = fmt.Sprintf("%s/%s/", defaultApplicationLogPathHostRoot, md.imageName)
+			mp.SourceVolumeHostPath = fmt.Sprintf("%s/%s/%s", defaultApplicationLogPathHostRoot, md.imageName, "log")
 			md.applicationLogMount = mp
 		} else {
 			mountPointMap[mp.SourceVolumeID] = mp
@@ -201,7 +243,7 @@ func (md *ManagedDaemon) SetAgentCommunicationMount(mp *MountPoint) error {
 // Used to set or to update the applicationLogMount
 func (md *ManagedDaemon) SetApplicationLogMount(mp *MountPoint) error {
 	if mp.SourceVolumeID == defaultApplicationLogMount {
-		mp.SourceVolumeHostPath = fmt.Sprintf("%s/%s/", defaultApplicationLogPathHostRoot, md.imageName)
+		mp.SourceVolumeHostPath = fmt.Sprintf("%s/%s/%s", defaultApplicationLogPathHostRoot, md.imageName, "log")
 		md.applicationLogMount = mp
 		return nil
 	} else {

@@ -1,8 +1,28 @@
-# Build csi-driver from the minimal eks base to add required mount utils
-# TODO update Dockerfile with arch to build arm and windows
+# Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You may
+# not use this file except in compliance with the License. A copy of the
+# License is located at
+#
+#	http://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is distributed
+# on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied. See the License for the specific language governing
+# permissions and limitations under the License.
 
-FROM public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-csi-ebs:latest.2 AS linux-amazon
-COPY csi-driver /bin/aws-ebs-csi-driver
+ARG GO_VERSION CSI_DRIVER_VERSION BUILD_DATE
+FROM public.ecr.aws/docker/library/golang:${GO_VERSION} as build
+
+WORKDIR /go/src/
+ADD . /go/src/
+
+RUN CGO_ENABLED=0 go build -ldflags "-X github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/version.version=$CSI_DRIVER_VERSION" -ldflags "-X github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/version.buildDate=$BUILD_DATE" -o /aws-ebs-csi-driver .
+
+# use minimal eks base for csi driver image to add required mount utils
+FROM public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-csi-ebs:latest.2
+
+MAINTAINER Amazon Web Services, Inc.
+COPY --from=build /aws-ebs-csi-driver /bin/aws-ebs-csi-driver
+
 ENTRYPOINT ["/bin/aws-ebs-csi-driver"]
-
-

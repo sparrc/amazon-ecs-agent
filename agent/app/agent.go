@@ -357,8 +357,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	}
 
 	bananaIDs := []string{}
-	bananaIDs = append (bananaIDs, "banana1")
-	bananaIDs = append (bananaIDs, "banana2")
+	bananaIDs = append(bananaIDs, "banana1")
+	bananaIDs = append(bananaIDs, "banana2")
 
 	hostResources["BANANA"] = &ecsmodel.Resource{
 		Name:           utils.Strptr("BANANA"),
@@ -833,6 +833,14 @@ func (agent *ecsAgent) registerContainerInstance(
 	}
 
 	platformDevices := agent.getPlatformDevices()
+	platformDevices = append(platformDevices, &ecsmodel.PlatformDevice{
+		Id:   aws.String("banana1"),
+		Type: aws.String("BANANA"),
+	})
+	platformDevices = append(platformDevices, &ecsmodel.PlatformDevice{
+		Id:   aws.String("banana2"),
+		Type: aws.String("BANANA"),
+	})
 
 	outpostARN := agent.getoutpostARN()
 
@@ -841,12 +849,14 @@ func (agent *ecsAgent) registerContainerInstance(
 			"containerInstanceARN": agent.containerInstanceARN,
 			"cluster":              agent.cfg.Cluster,
 		})
+		seelog.Infof("AGENT PLATFORM DEVICES: %v", platformDevices)
 		return agent.reregisterContainerInstance(client, capabilities, tags, uuid.New(), platformDevices, outpostARN)
 	}
 
 	logger.Info("Registering Instance with ECS")
 	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("",
 		capabilities, tags, uuid.New(), platformDevices, outpostARN)
+	seelog.Infof("PLATFORM DEVICES TO REGISTER: %v", platformDevices)
 	if err != nil {
 		logger.Error("Error registering container instance", logger.Fields{
 			field.Error: err,

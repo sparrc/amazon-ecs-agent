@@ -356,7 +356,9 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		StringSetValue: aws.StringSlice(gpuIDs),
 	}
 
-	bananaIDs := [...]string{"banana1", "banana2"}
+	bananaIDs := []string{}
+	bananaIDs = append (bananaIDs, "banana1")
+	bananaIDs = append (bananaIDs, "banana2")
 
 	hostResources["BANANA"] = &ecsmodel.Resource{
 		Name:           utils.Strptr("BANANA"),

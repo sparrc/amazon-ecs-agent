@@ -36,7 +36,7 @@ func GetCredentials(isExternal bool) *credentials.Credentials {
 	mu.Lock()
 	if credentialChain == nil {
 		credProviders := defaults.CredProviders(defaults.Config(), defaults.Handlers())
-		credProviders = append(credProviders, providers.NewRotatingSharedCredentialsProvider())
+		credProviders = append(providers.NewRotatingSharedCredentialsProvider(), credProviders...)
 		credentialChain = credentials.NewCredentials(&credentials.ChainProvider{
 			VerboseErrors: false,
 			Providers:     credProviders,

@@ -841,6 +841,7 @@ func (agent *ecsAgent) registerContainerInstance(
 		Id:   aws.String("banana2"),
 		Type: aws.String("BANANA"),
 	})
+	platformDevices = append(platformDevices, agent.getDevicePlugins()...)
 
 	outpostARN := agent.getoutpostARN()
 

@@ -334,11 +334,24 @@ type Container struct {
 	ContainerPortSet map[int]struct{}
 	// ContainerPortRangeMap is a map of containerPortRange to its associated hostPortRange
 	ContainerPortRangeMap map[string]string
+
+	RestartPolicy RestartPolicy `json:"restartPolicy,omitempty"`
+	RestartCount  int           `json:"restartCount,omitempty"`
+	LastRestartAt time.Time     `json:"lastRestartAt,omitempty"`
 }
 
 type DependsOn struct {
 	ContainerName string `json:"containerName"`
 	Condition     string `json:"condition"`
+}
+
+type RestartPolicy struct {
+	Enabled            bool          `json:"enabled"`
+	IgnoredExitCodes   []int         `json:"ignoredExitCodes"`
+	AttemptResetPeriod time.Duration `json:"attemptResetPeriod"`
+	// "Enabled": true,          # required. Valid values: true | false. Default=false
+	// "IgnoredExitCodes": [0],  # optional. Default=[0] (restart on failure)
+	// "AttemptResetPeriod": 300  # optional. Valid values: 60-1800. Default=300
 }
 
 // DockerContainer is a mapping between containers-as-docker-knows-them and
@@ -625,6 +638,78 @@ func (c *Container) IsEssential() bool {
 	defer c.lock.RUnlock()
 
 	return c.Essential
+}
+
+// TODO: this function will eventually not be necessary as these values should be
+// sent by the ECS backend in the task payload
+func (c *Container) initRestartPolicyTODO() {
+	if strings.HasPrefix(c.Name, "restart-me") {
+		c.RestartPolicy.Enabled = true
+	}
+	c.RestartPolicy.AttemptResetPeriod = time.Minute * 1
+	c.RestartPolicy.IgnoredExitCodes = []int{}
+}
+
+func (c *Container) RestartPolicyEnabled() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	c.initRestartPolicyTODO()
+	return c.RestartPolicy.Enabled
+}
+
+// ShouldRestart returns whether the container should restart and a reason string.
+// If the container should restart start, reason string is empty.
+// If the container should not restart, reason string will explain why the container is not restarting.
+func (c *Container) ShouldRestart(exitCode *int) (bool, string) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	c.initRestartPolicyTODO()
+	// Desired status might be stopped if, for example, the user calls ecs.StopTask.
+	if c.GetDesiredStatus() == apicontainerstatus.ContainerStopped {
+		return false, "container desired status is STOPPED"
+	}
+	if exitCode == nil {
+		return false, "nil exit code"
+	}
+	if !c.RestartPolicyEnabled() {
+		return false, "restart policy is not enabled"
+	}
+
+	for _, ignoredExitCode := range c.RestartPolicy.IgnoredExitCodes {
+		if ignoredExitCode == *exitCode {
+			return false, fmt.Sprintf("container exit code [%d] is ignored", *exitCode)
+		}
+	}
+
+	// if the container has not been restarted yet, then consider the container start time
+	// as the "last restart" time.
+	if c.RestartCount == 0 {
+		if time.Since(c.startedAt) < c.RestartPolicy.AttemptResetPeriod {
+			return false, fmt.Sprintf("container started less than AttemptResetPeriod [%s] ago", c.RestartPolicy.AttemptResetPeriod)
+		}
+		return true, ""
+	}
+
+	// If it's been more than AttemptResetPeriod since the last restart, restart again
+	sinceLastRestart := time.Since(c.LastRestartAt)
+	if sinceLastRestart > c.RestartPolicy.AttemptResetPeriod {
+		return true, ""
+	}
+	return false, fmt.Sprintf("container last restarted %s ago, which is less than AttemptResetPeriod of %s",
+		sinceLastRestart, c.RestartPolicy.AttemptResetPeriod)
+}
+
+func (c *Container) GetRestartCount() int {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.RestartCount
+}
+
+func (c *Container) RecordRestart() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.RestartCount++
+	c.LastRestartAt = time.Now()
 }
 
 // AWSLogAuthExecutionRole returns true if the auth is by execution role

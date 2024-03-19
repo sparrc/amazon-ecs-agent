@@ -2311,6 +2311,7 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 	logger.Info("Stopping container", logger.Fields{
 		field.TaskID:    task.GetID(),
 		field.Container: container.Name,
+		field.RuntimeID: container.RuntimeID,
 	})
 	dockerID, err := engine.getDockerID(task, container)
 	if err != nil {

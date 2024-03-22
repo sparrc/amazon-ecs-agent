@@ -87,9 +87,16 @@ func NewContainerResponse(
 	if err != nil {
 		return nil, err
 	}
+	dockerContainer, ok := state.ContainerByID(containerID)
+	if !ok {
+		return nil, errors.Errorf(
+			"v4 container response: unable to find container '%s'", containerID)
+	}
 	return &tmdsv4.ContainerResponse{
 		ContainerResponse: container,
 		Networks:          networks,
+		RestartCount:      dockerContainer.Container.RestartCount,
+		LastRestartedAt:   dockerContainer.Container.LastRestartAt,
 	}, nil
 }
 

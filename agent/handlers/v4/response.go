@@ -96,7 +96,7 @@ func NewContainerResponse(
 		ContainerResponse: container,
 		Networks:          networks,
 		RestartCount:      dockerContainer.Container.RestartCount,
-		LastRestartedAt:   dockerContainer.Container.LastRestartAt,
+		LastRestartAt:     dockerContainer.Container.LastRestartAt,
 	}, nil
 }
 

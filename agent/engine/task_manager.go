@@ -490,14 +490,14 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			logger.Info("Restarting container", eventLogFields,
 				logger.Fields{
 					"restartCount":  container.GetRestartCount(),
-					"lastRestartAt": container.LastRestartAt.UTC().Format(time.RFC3339),
+					"lastRestartAt": container.GetLastRestartAt().UTC().Format(time.RFC3339),
 				})
 			mtask.engine.startContainer(mtask.Task, container)
 			container.RecordRestart()
 			logger.Info("Restarted container", eventLogFields,
 				logger.Fields{
 					"restartCount":  container.GetRestartCount(),
-					"lastRestartAt": container.LastRestartAt.UTC().Format(time.RFC3339),
+					"lastRestartAt": container.GetLastRestartAt().UTC().Format(time.RFC3339),
 				})
 			// return here because we have now restarted the container and we don't
 			// want to complete the rest of the "container stop" workflow
@@ -506,7 +506,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		logger.Info("Not Restarting container", eventLogFields,
 			logger.Fields{
 				"restartCount":  container.GetRestartCount(),
-				"lastRestartAt": container.LastRestartAt.UTC().Format(time.RFC3339),
+				"lastRestartAt": container.GetLastRestartAt().UTC().Format(time.RFC3339),
 				"reason":        reason,
 			})
 	}

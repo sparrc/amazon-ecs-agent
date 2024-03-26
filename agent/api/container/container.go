@@ -705,6 +705,12 @@ func (c *Container) GetRestartCount() int {
 	return c.RestartCount
 }
 
+func (c *Container) GetLastRestartAt() time.Time {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.LastRestartAt
+}
+
 func (c *Container) RecordRestart() {
 	c.lock.Lock()
 	defer c.lock.Unlock()

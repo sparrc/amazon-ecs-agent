@@ -22,6 +22,7 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
+	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 
 	"github.com/pkg/errors"
@@ -48,17 +49,12 @@ func NewTaskResponse(
 	}
 	var containers []tmdsv4.ContainerResponse
 	// Convert each container response into v4 container response.
-	for i, container := range v2Resp.Containers {
-		networks, err := toV4NetworkResponse(container.Networks, func() (*apitask.Task, bool) {
-			return state.TaskByArn(taskARN)
-		})
+	for _, container := range v2Resp.Containers {
+		v4Container, err := v2ContainerToV4(&container, state)
 		if err != nil {
 			return nil, err
 		}
-		containers = append(containers, tmdsv4.ContainerResponse{
-			ContainerResponse: &v2Resp.Containers[i],
-			Networks:          networks,
-		})
+		containers = append(containers, *v4Container)
 	}
 
 	return &tmdsv4.TaskResponse{
@@ -80,8 +76,16 @@ func NewContainerResponse(
 	if err != nil {
 		return nil, err
 	}
+	return v2ContainerToV4(container, state)
+}
+
+func v2ContainerToV4(
+	v2Container *tmdsv2.ContainerResponse,
+	state dockerstate.TaskEngineState,
+) (*tmdsv4.ContainerResponse, error) {
+	containerID := v2Container.ID
 	// Convert v2 network responses into v4 network responses.
-	networks, err := toV4NetworkResponse(container.Networks, func() (*apitask.Task, bool) {
+	networks, err := toV4NetworkResponse(v2Container.Networks, func() (*apitask.Task, bool) {
 		return state.TaskByID(containerID)
 	})
 	if err != nil {
@@ -92,11 +96,14 @@ func NewContainerResponse(
 		return nil, errors.Errorf(
 			"v4 container response: unable to find container '%s'", containerID)
 	}
+	v2Container.LogDriver = dockerContainer.Container.GetLogDriver()
+	v2Container.LogOptions = dockerContainer.Container.GetLogOptions()
+	v2Container.ContainerARN = dockerContainer.Container.ContainerArn
 	return &tmdsv4.ContainerResponse{
-		ContainerResponse: container,
+		ContainerResponse: v2Container,
 		Networks:          networks,
-		RestartCount:      dockerContainer.Container.RestartCount,
-		LastRestartAt:     dockerContainer.Container.LastRestartAt,
+		RestartCount:      dockerContainer.Container.GetRestartCount(),
+		LastRestartAt:     dockerContainer.Container.GetLastRestartAt(),
 	}, nil
 }
 

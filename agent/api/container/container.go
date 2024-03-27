@@ -664,15 +664,15 @@ func (c *Container) ShouldRestart(exitCode *int) (bool, string) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	c.initRestartPolicyTODO()
+	if !c.RestartPolicyEnabled() {
+		return false, "restart policy is not enabled"
+	}
 	// Desired status might be stopped if, for example, the user calls ecs.StopTask.
 	if c.GetDesiredStatus() == apicontainerstatus.ContainerStopped {
 		return false, "container desired status is STOPPED"
 	}
 	if exitCode == nil {
 		return false, "nil exit code"
-	}
-	if !c.RestartPolicyEnabled() {
-		return false, "restart policy is not enabled"
 	}
 
 	for _, ignoredExitCode := range c.RestartPolicy.IgnoredExitCodes {

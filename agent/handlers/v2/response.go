@@ -151,7 +151,6 @@ func NewContainerResponseFromState(
 }
 
 // NewContainerResponse creates a new container response
-// TODO: remove includeV4Metadata from NewContainerResponse
 func NewContainerResponse(
 	dockerContainer *apicontainer.DockerContainer,
 	eni *ni.NetworkInterface,
@@ -178,14 +177,6 @@ func NewContainerResponse(
 	if container.CPU < minimumCPUUnit {
 		defaultCPU := func(val float64) *float64 { return &val }(minimumCPUUnit)
 		resp.Limits.CPU = defaultCPU
-	}
-
-	// V4 metadata endpoint calls this function for consistency across versions,
-	// but needs additional metadata only available at this scope.
-	if includeV4Metadata {
-		resp.LogDriver = container.GetLogDriver()
-		resp.LogOptions = container.GetLogOptions()
-		resp.ContainerARN = container.ContainerArn
 	}
 
 	// Write the container health status inside the container

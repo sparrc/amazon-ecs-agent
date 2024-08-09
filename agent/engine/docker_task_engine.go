@@ -1904,6 +1904,11 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
+	if endpoint := os.Getenv("ECS_AWSLOGS_ENDPOINT"); endpoint != "" {
+		logger.Info("ECS_AWSLOGS_ENDPOINT found, setting awslogs-endpoint to " + endpoint)
+		hostConfig.LogConfig.Config["awslogs-endpoint"] = endpoint
+	}
+
 	//Apply the log driver secret into container's LogConfig and Env secrets to container.Environment
 	hasSecretAsEnvOrLogDriver := func(s apicontainer.Secret) bool {
 		return s.Type == apicontainer.SecretTypeEnv || s.Target == apicontainer.SecretTargetLogDriver

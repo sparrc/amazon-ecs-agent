@@ -1867,13 +1867,15 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 					}
 				}
 			}
-			ipAddress, ok := getContainerHostIP(targetContainer.GetNetworkSettings())
+			// ipAddress, ok := getContainerHostIP(targetContainer.GetNetworkSettings())
+			//
+			dockerContainer, ok := engine.state.ContainerByID(targetContainer.RuntimeID)
 			if !ok {
 				err := apierrors.DockerClientConfigError{Msg: "unable to get BridgeIP for task in bridge mode"}
 				return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(&err)}
 			}
 			container.MergeEnvironmentVariables(map[string]string{
-				fluentNetworkHost: ipAddress,
+				fluentNetworkHost: dockerContainer.DockerName,
 				fluentNetworkPort: FluentNetworkPortValue,
 			})
 		}

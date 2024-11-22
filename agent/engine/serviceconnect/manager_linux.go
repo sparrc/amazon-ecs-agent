@@ -348,6 +348,11 @@ func (m *manager) CreateInstanceTask(cfg *config.Config) (*apitask.Task, error) 
 				HostConfig: aws.String(string(rawHostConfig)),
 			},
 			HealthCheckType: "DOCKER",
+			MountPoints: []apicontainer.MountPoint{{
+				SourceVolume:  "/etc/pki",
+				ContainerPath: "/etc/pki",
+				ReadOnly:      true,
+			}},
 		}},
 		LaunchType:         "EC2",
 		NetworkMode:        apitask.HostNetworkMode,

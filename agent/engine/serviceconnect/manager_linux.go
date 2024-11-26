@@ -207,6 +207,7 @@ func (m *manager) initAgentDirectoryMounts(taskId string, container *apicontaine
 
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(statusPathHost, m.statusPathContainer))
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(m.relayPathHost, m.relayPathContainer))
+	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping("/etc/pki", "/etc/pki"))
 
 	// create logging directory and bind mount, if customer has not configured a logging driver
 	if container.GetLogDriver() == "" {
@@ -348,11 +349,11 @@ func (m *manager) CreateInstanceTask(cfg *config.Config) (*apitask.Task, error) 
 				HostConfig: aws.String(string(rawHostConfig)),
 			},
 			HealthCheckType: "DOCKER",
-			MountPoints: []apicontainer.MountPoint{{
-				SourceVolume:  "/etc/pki",
-				ContainerPath: "/etc/pki",
-				ReadOnly:      true,
-			}},
+			// MountPoints: []apicontainer.MountPoint{{
+			// 	SourceVolume:  "/etc/pki",
+			// 	ContainerPath: "/etc/pki",
+			// 	ReadOnly:      true,
+			// }},
 		}},
 		LaunchType:         "EC2",
 		NetworkMode:        apitask.HostNetworkMode,

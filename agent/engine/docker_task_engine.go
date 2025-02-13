@@ -2610,10 +2610,6 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 		}
 	}
 
-	logger.Info("Stopping container", logger.Fields{
-		field.TaskID:    task.GetID(),
-		field.Container: container.Name,
-	})
 	dockerID, err := engine.getDockerID(task, container)
 	if err != nil {
 		return dockerapi.DockerContainerMetadata{
@@ -2641,6 +2637,12 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 	if apiTimeoutStopContainer <= 0 {
 		apiTimeoutStopContainer = engine.cfg.DockerStopTimeout
 	}
+	logger.Info("Stopping container", logger.Fields{
+		field.TaskID:    task.GetID(),
+		field.Container: container.Name,
+		field.RuntimeID: dockerID,
+		"stopTimeout":   apiTimeoutStopContainer,
+	})
 
 	return engine.stopDockerContainer(dockerID, container.Name, apiTimeoutStopContainer)
 }

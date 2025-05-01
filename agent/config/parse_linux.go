@@ -109,7 +109,7 @@ var IsWindows2016 = func() (bool, error) {
 
 // GetOSFamily returns "LINUX" as operating system family for linux based ecs instances.
 func GetOSFamily() string {
-	return strings.ToUpper(OSType)
+	return OSFamily
 }
 
 func parseTaskPidsLimit() int {

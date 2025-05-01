@@ -17,10 +17,15 @@
 package config
 
 import (
+	"os"
+
 	"github.com/containerd/cgroups/v3"
 )
 
 func init() {
+	if len(os.Getenv("ECS_OS_TYPE")) > 0 {
+		OSType = os.Getenv("ECS_OS_TYPE")
+	}
 	if cgroups.Mode() == cgroups.Unified {
 		CgroupV2 = true
 	}

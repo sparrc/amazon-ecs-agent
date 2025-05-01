@@ -289,6 +289,15 @@ func (client *ecsClient) registerContainerInstance(clusterRef string, containerI
 	registrationAttributes = append(registrationAttributes, client.getAdditionalAttributes()...)
 	registrationAttributes = append(registrationAttributes, client.getOutpostAttribute(outpostARN)...)
 
+	// TODO DEBUG
+	fields := logger.Fields{}
+	for _, attribute := range registrationAttributes {
+		if attribute.Value != nil && attribute.Name != nil {
+			fields[*attribute.Name] = *attribute.Value
+		}
+	}
+	logger.Info("Registering Container Instance with Attributes", fields)
+	// TODO DEBUG
 	registerRequest.Attributes = registrationAttributes
 	if len(tags) > 0 {
 		registerRequest.Tags = tags

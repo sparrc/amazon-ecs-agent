@@ -1826,7 +1826,8 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	if versionErr != nil {
 		return dockerapi.DockerContainerMetadata{Error: CannotGetDockerClientVersionError{versionErr}}
 	}
-	hostConfig, hcerr := task.DockerHostConfig(container, containerMap, dockerClientVersion, engine.cfg)
+	dockerServerVersion, versionErr := engine.Version()
+	hostConfig, hcerr := task.DockerHostConfig(container, containerMap, dockerClientVersion, engine.cfg, dockerServerVersion)
 	if hcerr != nil {
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
 	}

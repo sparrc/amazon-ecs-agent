@@ -86,6 +86,11 @@ const (
 	// neuronRuntime is the name of the neuron docker runtime.
 	neuronRuntime = "neuron"
 
+	// containerdV2ShimRuntime is the name of the containerd "v2" shim runtime.
+	// This is used to guarantee that the v2 shim is used, to prevent issues with
+	// the v1 runtime after it has been removed from containerd (in containerd 2.x).
+	containerdV2ShimRuntime = "io.containerd.runc.v2"
+
 	ContainerOrderingCreateCondition  = "CREATE"
 	ContainerOrderingStartCondition   = "START"
 	ContainerOrderingHealthyCondition = "HEALTHY"
@@ -1885,8 +1890,14 @@ func (task *Task) dockerExposedPorts(container *apicontainer.Container) (dockerE
 }
 
 // DockerHostConfig construct the configuration recognized by docker
-func (task *Task) DockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion, cfg *config.Config) (*dockercontainer.HostConfig, *apierrors.HostConfigError) {
-	return task.dockerHostConfig(container, dockerContainerMap, apiVersion, cfg)
+func (task *Task) DockerHostConfig(
+	container *apicontainer.Container,
+	dockerContainerMap map[string]*apicontainer.DockerContainer,
+	apiVersion dockerclient.DockerVersion,
+	cfg *config.Config,
+	dockerServerVersion string,
+) (*dockercontainer.HostConfig, *apierrors.HostConfigError) {
+	return task.dockerHostConfig(container, dockerContainerMap, apiVersion, cfg, dockerServerVersion)
 }
 
 // ApplyExecutionRoleLogsAuth will check whether the task has execution role
@@ -1921,7 +1932,13 @@ func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *dockercontainer.HostCon
 	return nil
 }
 
-func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion, cfg *config.Config) (*dockercontainer.HostConfig, *apierrors.HostConfigError) {
+func (task *Task) dockerHostConfig(
+	container *apicontainer.Container,
+	dockerContainerMap map[string]*apicontainer.DockerContainer,
+	apiVersion dockerclient.DockerVersion,
+	cfg *config.Config,
+	dockerServerVersion string,
+) (*dockercontainer.HostConfig, *apierrors.HostConfigError) {
 	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
 	if err != nil {
 		return nil, &apierrors.HostConfigError{Msg: err.Error()}
@@ -1952,7 +1969,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		Resources:    resources,
 	}
 
-	if err := task.overrideContainerRuntime(container, hostConfig, cfg); err != nil {
+	if err := task.overrideContainerRuntime(container, hostConfig, cfg, dockerServerVersion); err != nil {
 		return nil, err
 	}
 
@@ -1996,8 +2013,12 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 }
 
 // overrideContainerRuntime overrides the runtime for the container in host config if needed.
-func (task *Task) overrideContainerRuntime(container *apicontainer.Container, hostCfg *dockercontainer.HostConfig,
-	cfg *config.Config) *apierrors.HostConfigError {
+func (task *Task) overrideContainerRuntime(
+	container *apicontainer.Container,
+	hostCfg *dockercontainer.HostConfig,
+	cfg *config.Config,
+	dockerServerVersion string,
+) *apierrors.HostConfigError {
 	if task.isGPUEnabled() && task.shouldRequireNvidiaRuntime(container) {
 		if !cfg.External.Enabled() {
 			if task.NvidiaRuntime == "" {
@@ -2019,6 +2040,24 @@ func (task *Task) overrideContainerRuntime(container *apicontainer.Container, ho
 			"runTime":       neuronRuntime,
 		})
 		hostCfg.Runtime = neuronRuntime
+	}
+
+	isShimV2Compatible, err := utils.Version(dockerServerVersion).Matches(">=20.10.0")
+	if err != nil {
+		logger.Error("Unable to determine whether the Docker server version is at least 20.10.0", logger.Fields{
+			field.TaskID:    task.GetID(),
+			field.Container: container.Name,
+			field.Error:     err,
+		})
+		return nil
+	}
+	if isShimV2Compatible {
+		logger.Debug("Setting runtime for container", logger.Fields{
+			field.TaskID:    task.GetID(),
+			field.Container: container.Name,
+			"runTime":       containerdV2ShimRuntime,
+		})
+		hostCfg.Runtime = containerdV2ShimRuntime
 	}
 	return nil
 }

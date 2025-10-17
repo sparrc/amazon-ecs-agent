@@ -70,25 +70,26 @@ const (
 // FirelensResource models fluentd/fluentbit firelens container related resources as a task resource.
 type FirelensResource struct {
 	// Fields that are specific to firelens resource. They are only set at initialization so are not protected by lock.
-	cluster                string
-	taskARN                string
-	taskDefinition         string
-	ec2InstanceID          string
-	resourceDir            string
-	firelensConfigType     string
-	region                 string
-	ecsMetadataEnabled     bool
-	containerToLogOptions  map[string]map[string]string
-	credentialsManager     credentials.Manager
-	executionCredentialsID string
-	externalConfigType     string
-	externalConfigValue    string
-	networkMode            string
-	user                   string
-	ioutil                 ioutilwrapper.IOUtil
-	s3ClientCreator        factory.S3ClientCreator
-	containerMemoryLimit   int64
-	ipCompatibility        ipcompatibility.IPCompatibility
+	cluster                  string
+	taskARN                  string
+	taskDefinition           string
+	ec2InstanceID            string
+	resourceDir              string
+	firelensConfigType       string
+	region                   string
+	ecsMetadataEnabled       bool
+	containerToLogOptions    map[string]map[string]string
+	credentialsManager       credentials.Manager
+	executionCredentialsID   string
+	externalConfigType       string
+	externalConfigValue      string
+	networkMode              string
+	user                     string
+	ioutil                   ioutilwrapper.IOUtil
+	s3ClientCreator          factory.S3ClientCreator
+	containerMemoryLimit     int64
+	ipCompatibility          ipcompatibility.IPCompatibility
+	configGenerationDisabled bool
 
 	// Fields for the common functionality of task resource. Access to these fields are protected by lock.
 	createdAtUnsafe     time.Time
@@ -231,6 +232,7 @@ func (firelens *FirelensResource) Initialize(
 	firelens.s3ClientCreator = factory.NewS3ClientCreator()
 	firelens.credentialsManager = resourceFields.CredentialsManager
 	firelens.ipCompatibility = config.InstanceIPCompatibility
+	firelens.configGenerationDisabled = config.FirelensConfigGenerationDisabled.Enabled()
 }
 
 // GetNetworkMode returns the network mode of the task.
@@ -492,12 +494,33 @@ func (firelens *FirelensResource) createDirectories() error {
 // generateConfigFile generates a firelens config file at $(RESOURCE_DIR)/config/fluent.conf.
 // This contains configs needed by the firelens container.
 func (firelens *FirelensResource) generateConfigFile() error {
+	confFilePath := filepath.Join(firelens.resourceDir, "config", "fluent.conf")
+
+	// If config generation is disabled, generate a simple @INCLUDE statement
+	if firelens.configGenerationDisabled {
+		err := firelens.writeConfigFile(func(file oswrapper.File) error {
+			var includePath string
+			if firelens.firelensConfigType == FirelensConfigTypeFluentd {
+				includePath = S3ConfigPathFluentd
+			} else {
+				includePath = S3ConfigPathFluentbit
+			}
+			_, err := file.Write([]byte(fmt.Sprintf("@INCLUDE %s\n", includePath)))
+			return err
+		}, confFilePath)
+		if err != nil {
+			return errors.Wrapf(err, "unable to generate simple firelens config file")
+		}
+		seelog.Infof("Generated simple firelens config file with @INCLUDE statement at: %s", confFilePath)
+		return nil
+	}
+
+	// Use existing logic for full config generation
 	config, err := firelens.generateConfig()
 	if err != nil {
 		return errors.Wrap(err, "unable to generate firelens config")
 	}
 
-	confFilePath := filepath.Join(firelens.resourceDir, "config", "fluent.conf")
 	err = firelens.writeConfigFile(func(file oswrapper.File) error {
 		if firelens.firelensConfigType == FirelensConfigTypeFluentd {
 			return config.WriteFluentdConfig(file)

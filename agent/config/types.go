@@ -400,6 +400,10 @@ type Config struct {
 	// fluentd log driver. Ref: https://docs.docker.com/engine/logging/drivers/fluentd/#fluentd-async
 	FirelensAsyncEnabled BooleanDefaultTrue
 
+	// FirelensConfigGenerationDisabled specifies whether the agent should generate
+	// a full FireLens configuration or just a simple @INCLUDE statement to an external config
+	FirelensConfigGenerationDisabled BooleanDefaultFalse
+
 	// IP version compatibility for the container instance's default network
 	InstanceIPCompatibility ipcompatibility.IPCompatibility
 }
